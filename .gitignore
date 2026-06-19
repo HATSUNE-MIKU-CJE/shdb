@@ -1,0 +1,7 @@
+*.o
+*.ko
+*.mod.*
+*.out
+*.shdb
+.reasonix/
+Zone.Identifier
