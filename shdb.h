@@ -10,7 +10,8 @@
 #define HEADER_SIZE         16            //头文件在磁盘上的字节数，record从16字节处开始
 #define COMMAND_NUMBER      3             //命令语句数量
 #define INSERT_ARGS_NUMBER  3             //insert命令包含参数数量
-#define QUERY_ARGS_NUMBER   6
+#define QUERY_ARGS_NUMBER   4
+#define TIME_ARGS_NUMBER    7
 
 typedef struct 
 {
@@ -18,7 +19,7 @@ typedef struct
     uint16_t version;
     uint16_t record_size;
     uint64_t created_at;                  //文件创建时的Unix毫秒时间戳
-}file_header __attribute__((packed));
+}__attribute__((packed)) file_header;
 
 typedef struct 
 {
@@ -34,7 +35,7 @@ typedef struct
     uint8_t  flags;                       //bit0=tombstone 删除标记
     uint8_t  reserved[2];                  //对齐填充
     uint32_t crc32;                       //CRC32校验
-}detect_record __attribute__((packed));
+}__attribute__((packed)) detect_record ;
 
 typedef struct 
 {
@@ -61,6 +62,7 @@ typedef enum
     CLASS_MAX    = 2,
 }class_id_t;
 
+
 typedef int (*handle_fun_t)(int argc, char *argv[]);
 
 typedef struct 
@@ -74,8 +76,11 @@ int cmd_query(int argc, char *argv[]);
 int cmd_info(int argc, char *argv[]);
 int parse_insert_args(int argc, char *argv[], insert_args *insert_args);
 int parse_query_args(int argc, char *argv[], query_args *query_args);
+int dispatch(int argc, char *argv[]);
 uint16_t swap16(uint16_t x);
 uint32_t swap32(uint32_t x);
 uint64_t swap64(uint64_t x);
+
+extern char *class_id_table[CLASS_MAX];
 
 #endif
