@@ -2,16 +2,21 @@
 #define __SHDB_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define SHDB_MAGIC          0x53484442    //"SHDB"对应的16进制，用来表明自己是shdb数据文件
-#define SHDB_VERSION        1             //版本号
+#define SHDB_VERSION        2             //版本号
 #define SHDB_DATA_PATH      "data.shdb"   //数据文件名
 #define RECORD_SIZE         36            //一条记录在磁盘上的字节数 
 #define HEADER_SIZE         16            //头文件在磁盘上的字节数，record从16字节处开始
-#define COMMAND_NUMBER      3             //命令语句数量
+#define ID_SIZE             4             //记录id在磁盘上的字节数
+#define COMMAND_NUMBER      4             //命令语句数量
 #define INSERT_ARGS_NUMBER  3             //insert命令包含参数数量
 #define QUERY_ARGS_NUMBER   4
 #define TIME_ARGS_NUMBER    7
+#define TOMBSTONE_FLAG      0x01          //墓碑标志位掩码
+#define DELETE_ARGS_NUMBER  1             
+#define MAX_RECORDS         1000        
 
 typedef struct 
 {
@@ -39,6 +44,12 @@ typedef struct
 
 typedef struct 
 {
+    uint32_t id;                               //id
+}__attribute__((packed)) detect_id;
+
+
+typedef struct 
+{
     uint8_t  class_id;                    // --class 字符串转成的枚举值
     float    confidence;                  // --conf  
     uint16_t bbox[4];                     // --bbox  拆成x y w h
@@ -53,6 +64,11 @@ typedef struct
     int      has_class;
     int      has_min_conf;
 }query_args;
+
+typedef struct 
+{
+    uint32_t id;
+}delete_args;
 
 
 typedef enum
@@ -74,13 +90,17 @@ typedef struct
 int cmd_insert(int argc, char *argv[]);
 int cmd_query(int argc, char *argv[]);
 int cmd_info(int argc, char *argv[]);
+int cmd_delete(int argc, char *argv[]);
 int parse_insert_args(int argc, char *argv[], insert_args *insert_args);
 int parse_query_args(int argc, char *argv[], query_args *query_args);
+int parse_delete_args(int argc, char *argv[], delete_args *delete_args);
 int dispatch(int argc, char *argv[]);
+int find_free_id(uint32_t free_slots[],int fd);
+uint32_t crc32(const uint8_t *data, size_t len);
 uint16_t swap16(uint16_t x);
 uint32_t swap32(uint32_t x);
 uint64_t swap64(uint64_t x);
 
 extern char *class_id_table[CLASS_MAX];
 
-#endif
+#endif 

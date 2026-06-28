@@ -3,12 +3,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <errno.h>
 #include "shdb.h"
 
 static command command_table[COMMAND_NUMBER] = {
     {"insert" , cmd_insert},
     {"query"  , cmd_query},
     {"info"   , cmd_info},
+    {"delete" , cmd_delete},
 };
 
 static char *insert_args_table[INSERT_ARGS_NUMBER] = {
@@ -22,6 +24,10 @@ static char *query_args_table[QUERY_ARGS_NUMBER] = {
     "--to",
     "--class",
     "--min-conf"
+};
+
+static char *delete_args_table[DELETE_ARGS_NUMBER] = {
+    "--id"
 };
 
 char *class_id_table[CLASS_MAX] = {
@@ -64,7 +70,13 @@ int parse_insert_args(int argc, char *argv[], insert_args *insert_args)
         }
         else if (strcmp(insert_args_table[1],argv[i])==0)
         {
+            errno = 0;
             insert_args->confidence = strtof (argv[i+1],NULL);
+            if (errno == ERANGE)
+            {
+                fprintf(stderr,"number out of range: %s\n",argv[i+1]);
+                return -1;
+            }
         }
         else if (strcmp(insert_args_table[2],argv[i])==0)
         {
@@ -181,6 +193,16 @@ int parse_query_args(int argc, char *argv[], query_args *query_args)
             query_args->has_min_conf = 1;
             query_args->min_conf = strtof(argv[i+1],NULL);
         }
+    }
+    return 0;
+}
+
+int parse_delete_args(int argc, char *argv[], delete_args *delete_args)
+{
+    (void)argc;
+    if (strcmp(delete_args_table[0],argv[0])==0)
+    {
+        delete_args->id = (uint32_t)strtoul(argv[1],NULL,10);
     }
     return 0;
 }

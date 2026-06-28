@@ -1,6 +1,6 @@
 CC     = gcc
 CFLAGS = -Wall -Wextra
-OBJS   = main.o parser.o save.o swap.o read.o 
+OBJS   = main.o parser.o storage.o swap.o query.o crc32.o
 
 shdb: $(OBJS)
 		$(CC) -o shdb $(OBJS)
@@ -11,13 +11,16 @@ main.o: main.c shdb.h
 parser.o: parser.c shdb.h
 		$(CC) $(CFLAGS) -c $<
 
-save.o: save.c shdb.h
+storage.o: storage.c shdb.h
 		$(CC) $(CFLAGS) -c $<
 
 swap.o: swap.c shdb.h
 		$(CC) $(CFLAGS) -c $<
 
-read.o: read.c shdb.h
+query.o: query.c shdb.h
+		$(CC) $(CFLAGS) -c $<
+		
+crc32.o: crc32.c shdb.h
 		$(CC) $(CFLAGS) -c $<
 
 .PHONY: clean

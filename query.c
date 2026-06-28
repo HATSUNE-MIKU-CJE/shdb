@@ -11,9 +11,13 @@
 
 int cmd_query(int argc, char *argv[])
 {
+    detect_id id;
     detect_record shdb_record;
     query_args query_args;
+    time_t sec;
+    char buf[64];
     int i = 0;
+    struct tm time_info;
     int fd = open(SHDB_DATA_PATH,O_RDONLY);
     if (fd == -1)
     {
@@ -23,11 +27,23 @@ int cmd_query(int argc, char *argv[])
     parse_query_args(argc,argv,&query_args);
     while (1)
     {
-        lseek(fd,16+i*36,SEEK_SET);
-        ssize_t n =read(fd,&shdb_record,36);
+        lseek(fd,HEADER_SIZE+i*RECORD_SIZE+i*ID_SIZE,SEEK_SET);
+        ssize_t n =read(fd,&shdb_record,RECORD_SIZE);
+        ssize_t m =read(fd,&id,ID_SIZE);
         i++;
-        if (n==36)
+        if (n==RECORD_SIZE)
         {
+            if (shdb_record.flags == TOMBSTONE_FLAG)
+            {
+                continue;
+            }
+            uint32_t stored = swap32(shdb_record.crc32);
+            uint32_t computed = crc32((uint8_t*)&shdb_record,32);
+            if (stored != computed)
+            {
+                fprintf(stderr,"warning: CRC mismatch, skipping record\n");
+                continue;
+            }
             shdb_record.timestamp = swap64(shdb_record.timestamp);
             shdb_record.bbox_x = swap16(shdb_record.bbox_x);
             shdb_record.bbox_y = swap16(shdb_record.bbox_y);
@@ -49,8 +65,11 @@ int cmd_query(int argc, char *argv[])
                 if (shdb_record.confidence < query_args.min_conf)
                 {continue;}
             }
-            printf("class: %s confidence: %f x: %d y: %d w: %d h: %d\n",
-                    class_id_table[shdb_record.class_id],
+            sec = shdb_record.timestamp / 1000;
+            localtime_r(&sec,&time_info);
+            strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M:%S",&time_info);
+            printf("time: %s class: %s confidence: %f x: %d y: %d w: %d h: %d",
+                    buf, class_id_table[shdb_record.class_id], 
                     shdb_record.confidence, shdb_record.bbox_x,
                     shdb_record.bbox_y,shdb_record.bbox_w,shdb_record.bbox_h);
             
@@ -66,6 +85,17 @@ int cmd_query(int argc, char *argv[])
             close(fd);
             return -1;
         }
+        if (m == ID_SIZE)
+        {
+            id.id = swap32(id.id); 
+            printf(" #id: %d\n",id.id);
+        }
+        else
+        {
+            perror("read failed");
+            close(fd);
+            return -1;
+        }
     }
     close(fd);
     return 0;
@@ -75,6 +105,7 @@ int cmd_info(int argc, char *argv[])
 {
     (void)argc;
     (void)argv;
+    uint32_t free_slot[MAX_RECORDS];
     file_header file_header;
     struct stat st;
     long int size;
@@ -94,18 +125,20 @@ int cmd_info(int argc, char *argv[])
         perror("open failed");
         return -1;
     }
-    if (read(fd,&file_header,16)==16)
+    uint32_t free_count = find_free_id(free_slot,fd);
+    lseek(fd,0,SEEK_SET);
+    if (read(fd,&file_header,HEADER_SIZE)==HEADER_SIZE)
     {
         file_header.magic = swap32(file_header.magic);
         file_header.version = swap16(file_header.version);
         file_header.record_size = swap16(file_header.record_size);
         file_header.created_at = swap64(file_header.created_at);
-        records = (size - 16) / file_header.record_size;
+        records = (size - HEADER_SIZE) / (RECORD_SIZE+ID_SIZE);
         sec = file_header.created_at / 1000;
         localtime_r(&sec,&time_info);
         strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M:%S",&time_info);
-        printf("created_at: %s\nmagic: %u\nversion: %d\nrecords: %d\nrecord_size: %d\n",
-            buf, file_header.magic, file_header.version, records, file_header.record_size);
+        printf("created_at: %s\nmagic: %u\nversion: %d\ntotal_records: %d\nalive_records: %d\nrecord_size: %d\n",
+            buf, file_header.magic, file_header.version, records, records-free_count, file_header.record_size);
     }
     else
     {
